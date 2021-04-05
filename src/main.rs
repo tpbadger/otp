@@ -1,14 +1,14 @@
 use phf::phf_map;
 use rand::Rng;
-use std::collections::HashMap;
 use std::fs::File;
-use std::io::{BufRead, BufReader, Error, Write};
+use std::io::{BufRead, BufReader, Error, Write, ErrorKind};
+use std::path::Path;
 
 // CLI functionality
 // generate a key based on message length -> Done
 // encrypt a message with a provided key -> Done
 // decrypt a message with a provided key -> Done
-// file io 
+// file io -> read done, write done
 // cli flags
 
 static CHAR_NUM_MAP: phf::Map<char, i64> = phf_map! {
@@ -38,6 +38,8 @@ static CHAR_NUM_MAP: phf::Map<char, i64> = phf_map! {
     'x' => 23,
     'y' => 24,
     'z' => 25,
+    ' ' => 26,
+    '.' => 27,
 };
 
 static NUM_CHAR_MAP: phf::Map<&str, char> = phf_map! {
@@ -67,14 +69,16 @@ static NUM_CHAR_MAP: phf::Map<&str, char> = phf_map! {
    "23" => 'x',
    "24" => 'y',
    "25" => 'z',
+   "26" => ' ',
+   "27" => '.',
 };
 
-fn generate_key(message_length: usize) -> Vec<char> {
+fn generate_key(message_length: u64) -> Vec<char> {
     let mut v: Vec<char> = Vec::new();
     let mut rng = rand::thread_rng();
     // generate key based on message length
     for _ in 1..=message_length {
-        let random_num = rng.gen_range(0..26).to_string();
+        let random_num = rng.gen_range(0..28).to_string();
         let i = NUM_CHAR_MAP[&random_num[..]];
         v.push(i);
     }
@@ -82,19 +86,43 @@ fn generate_key(message_length: usize) -> Vec<char> {
 }
 
 fn write_file(filename: String, content: Vec<char>) {
-    let mut f = File::create(filename).expect("Unable to create key");
-    // collect content into a String literal
-    let s: String = content.into_iter().collect();
+    let path = Path::new(&filename);
+    let display = path.display();
+
+    // create the file
+    let file = match File::create(&path) {
+        Err(why) => panic!("couldn't create {}: {}", display, why),
+        Ok(file) => file,
+    };
+
+    // collect the content vec to write to file
+    let collected: String = content.into_iter().collect();
+
     // write to the file
-    writeln!(f, "{}", s);
+    std::fs::write(filename, collected).expect("Unable to write to file");
+}
+
+fn read_file(filename: String) -> Result<Vec<char>, Error> {
+    // reads a file (key or message) into char vec for consumption
+    let file = File::open(filename)?;
+    let br = BufReader::new(file);
+    let mut content = Vec::new();
+    for line in br.lines() {
+        let line = line?;
+        let n = line.trim();
+        for c in n.chars() {
+            content.push(c);
+        }
+    }
+    Ok(content) // everything is Ok, return vector
 }
 
 #[test]
 fn test_encode() {
     // assemble
-    let message = "hello".to_string();
+    let message = vec!['h', 'e', 'l', 'l' ,'o'];
     let key = vec!['x', 'm', 'c', 'k', 'l'];
-    let expected = vec!['e', 'q', 'n', 'v', 'z'];
+    let expected = vec!['c', 'q', 'n', 'v', 'z'];
     // act
     let res = process_message(&message, &key, true);
     // assert
@@ -104,7 +132,7 @@ fn test_encode() {
 #[test]
 fn test_decode() {
     // assemble
-    let message = "eqnvz".to_string();
+    let message = vec!['c', 'q', 'n', 'v' ,'z'];
     let key = vec!['x', 'm', 'c', 'k', 'l'];
     let expected = vec!['h', 'e', 'l', 'l', 'o'];
     // act
@@ -113,36 +141,75 @@ fn test_decode() {
     assert_eq!(res, expected);
 }
 
-fn process_message(message: &String, key: &Vec<char>, encode: bool) -> Vec<char>{
+fn process_message(message: &Vec<char>, key: &Vec<char>, encode: bool) -> Vec<char>{
     let mut processed: Vec<char> = Vec::new();
-    for (index, c) in message.chars().enumerate() {
-        // ignore whitespace
-        let c_string = c.to_string();
-        if c_string != " " {
-            // get message number value
-            let message_num = CHAR_NUM_MAP[&c];
-            // get key number value
-            let key_char = key[index];
-            let key_num = CHAR_NUM_MAP[&key_char];
-            let mut mod_number: i64;
-            if encode {
-                mod_number = message_num + key_num;
-                if mod_number > 26 {
-                    mod_number -= 26
-                }
-            } else {
-                mod_number = message_num - key_num;
-                if mod_number < 0 {
-                    mod_number += 26
-                }
+    for (index, c) in message.into_iter().enumerate() {
+        // get message number value
+        let message_num = CHAR_NUM_MAP[&c];
+        // get key number value
+        let key_char = key[index];
+        let key_num = CHAR_NUM_MAP[&key_char];
+        let mut mod_number: i64;
+        if encode {
+            mod_number = message_num + key_num;
+            if mod_number > 27 {
+                mod_number -= 28
             }
-            let decode_char = NUM_CHAR_MAP[&mod_number.to_string()[..]];
-            processed.push(decode_char);
+        } else {
+            mod_number = message_num - key_num;
+            if mod_number < 0 {
+                mod_number += 28
+            }
         }
+        let decode_char = NUM_CHAR_MAP[&mod_number.to_string()[..]];
+        processed.push(decode_char);
     }
     return processed;
 }
 
+fn cli_generate_key(message_length: u64) {
+    let k = generate_key(message_length);
+    write_file("key.txt".to_string(), k);
+}
+
+fn cli_encode(message_file_path: String, key_file_path: String) {
+    let m = read_file(message_file_path);
+    let k = read_file(key_file_path);
+
+    match m {
+        Ok(m) => {
+            match k {
+                Ok(k) => {
+                    let e = process_message(&m, &k, true);
+                    write_file("encoded.txt".to_string(), e);
+                },
+                Err(k) => panic!("Couldn't read from key file")
+            }
+        },
+        Err(m) => panic!("Couldn't read from message file")
+    }
+}
+
+fn cli_decode(message_file_path: String, key_file_path: String) {
+    let m = read_file(message_file_path);
+    let k = read_file(key_file_path);
+
+    match m {
+        Ok(m) => {
+            match k {
+                Ok(k) => {
+                    let e = process_message(&m, &k, false);
+                    write_file("decoded.txt".to_string(), e);
+                },
+                Err(k) => panic!("Couldn't read from key file")
+            }
+        },
+        Err(m) => panic!("Couldn't read from message file")
+    }
+}
+
 fn main() {
-    // cli here
+    // cli_generate_key(17);
+    // cli_encode("message.txt".to_string(), "key.txt".to_string());
+    // cli_decode("encoded.txt".to_string(), "key.txt".to_string());
 }
