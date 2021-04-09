@@ -1,15 +1,9 @@
 use phf::phf_map;
 use rand::Rng;
 use std::fs::File;
-use std::io::{BufRead, BufReader, Error, Write, ErrorKind};
+use std::io::{BufRead, BufReader, Error};
 use std::path::Path;
-
-// CLI functionality
-// generate a key based on message length -> Done
-// encrypt a message with a provided key -> Done
-// decrypt a message with a provided key -> Done
-// file io -> read done, write done
-// cli flags
+use structopt::StructOpt;
 
 static CHAR_NUM_MAP: phf::Map<char, i64> = phf_map! {
     'a' => 0,
@@ -73,6 +67,21 @@ static NUM_CHAR_MAP: phf::Map<&str, char> = phf_map! {
    "27" => '.',
 };
 
+#[derive(StructOpt)]
+struct Cli {
+    /// command to run -> [GenerateKey, Encode, Decode]
+    command: String,
+    /// path to key file if encoding/decoding
+    #[structopt(short = "k", long = "key")]
+    key_file: Option<String>,
+    /// path to message file if encoding/decoding
+    #[structopt(short = "m", long = "message")]
+    message_file: Option<String>,
+    /// path to message file if encoding/decoding
+    #[structopt(short = "l", long = "length")]
+    key_length: Option<u64>,
+}
+ 
 fn generate_key(message_length: u64) -> Vec<char> {
     let mut v: Vec<char> = Vec::new();
     let mut rng = rand::thread_rng();
@@ -208,8 +217,45 @@ fn cli_decode(message_file_path: String, key_file_path: String) {
     }
 }
 
-fn main() {
-    // cli_generate_key(17);
-    // cli_encode("message.txt".to_string(), "key.txt".to_string());
-    // cli_decode("encoded.txt".to_string(), "key.txt".to_string());
+fn main() {   
+    let args = Cli::from_args();
+
+    match &args.command[..] {
+        "GenerateKey" => {
+            if let Some(length) = args.key_length {
+                cli_generate_key(length);
+            } else {
+                println!("No length provided")
+            }
+        },
+        "Encode" => {
+            if let Some(key_file) = args.key_file {
+                if let Some(message_file) = args.message_file {
+                    cli_encode(message_file, key_file);
+                }
+                else {
+                    // message file not provided
+                    println!("path to message file not provided")
+                }
+            } else {
+                // key file not provided
+                println!("path to key file not provided")
+            }
+        },
+        "Decode" => {
+            if let Some(key_file) = args.key_file {
+                if let Some(message_file) = args.message_file {
+                    cli_decode(message_file, key_file);
+                }
+                else {
+                    // message file not provided
+                    println!("path to message file not provided")
+                }
+            } else {
+                // key file not provided
+                println!("path to key file not provided")
+            }
+        },
+        _ => {println!("{}", args.command + " not valid!")}
+    }
 }
