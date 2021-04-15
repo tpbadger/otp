@@ -91,7 +91,7 @@ fn generate_key(message_length: u64) -> Vec<char> {
         let i = NUM_CHAR_MAP[&random_num[..]];
         v.push(i);
     }
-    return v;
+    v
 }
 
 fn write_file(filename: String, content: Vec<char>) {
@@ -99,10 +99,9 @@ fn write_file(filename: String, content: Vec<char>) {
     let display = path.display();
 
     // create the file
-    match File::create(&path) {
-        Err(why) => panic!("couldn't create {}: {}", display, why),
-        _ => {}
-    };
+    if let Err(why) = File::create(&path) {
+        panic!("couldn't create {}: {}", display, why)
+    }
 
     // collect the content vec to write to file
     let collected: String = content.into_iter().collect();
@@ -150,9 +149,9 @@ fn test_decode() {
     assert_eq!(res, expected);
 }
 
-fn process_message(message: &Vec<char>, key: &Vec<char>, encode: bool) -> Vec<char> {
+fn process_message(message: &[char], key: &[char], encode: bool) -> Vec<char> {
     let mut processed: Vec<char> = Vec::new();
-    for (index, c) in message.into_iter().enumerate() {
+    for (index, c) in message.iter().enumerate() {
         // get message number value
         let message_num = CHAR_NUM_MAP[&c];
         // get key number value
@@ -173,7 +172,7 @@ fn process_message(message: &Vec<char>, key: &Vec<char>, encode: bool) -> Vec<ch
         let decode_char = NUM_CHAR_MAP[&mod_number.to_string()[..]];
         processed.push(decode_char);
     }
-    return processed;
+    processed // instead of return
 }
 
 fn cli_generate_key(message_length: u64) {
