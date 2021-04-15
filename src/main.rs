@@ -81,7 +81,7 @@ struct Cli {
     #[structopt(short = "l", long = "length")]
     key_length: Option<u64>,
 }
- 
+
 fn generate_key(message_length: u64) -> Vec<char> {
     let mut v: Vec<char> = Vec::new();
     let mut rng = rand::thread_rng();
@@ -99,9 +99,9 @@ fn write_file(filename: String, content: Vec<char>) {
     let display = path.display();
 
     // create the file
-    let file = match File::create(&path) {
+    match File::create(&path) {
         Err(why) => panic!("couldn't create {}: {}", display, why),
-        Ok(file) => file,
+        _ => {}
     };
 
     // collect the content vec to write to file
@@ -129,7 +129,7 @@ fn read_file(filename: String) -> Result<Vec<char>, Error> {
 #[test]
 fn test_encode() {
     // assemble
-    let message = vec!['h', 'e', 'l', 'l' ,'o'];
+    let message = vec!['h', 'e', 'l', 'l', 'o'];
     let key = vec!['x', 'm', 'c', 'k', 'l'];
     let expected = vec!['c', 'q', 'n', 'v', 'z'];
     // act
@@ -141,7 +141,7 @@ fn test_encode() {
 #[test]
 fn test_decode() {
     // assemble
-    let message = vec!['c', 'q', 'n', 'v' ,'z'];
+    let message = vec!['c', 'q', 'n', 'v', 'z'];
     let key = vec!['x', 'm', 'c', 'k', 'l'];
     let expected = vec!['h', 'e', 'l', 'l', 'o'];
     // act
@@ -150,7 +150,7 @@ fn test_decode() {
     assert_eq!(res, expected);
 }
 
-fn process_message(message: &Vec<char>, key: &Vec<char>, encode: bool) -> Vec<char>{
+fn process_message(message: &Vec<char>, key: &Vec<char>, encode: bool) -> Vec<char> {
     let mut processed: Vec<char> = Vec::new();
     for (index, c) in message.into_iter().enumerate() {
         // get message number value
@@ -186,16 +186,14 @@ fn cli_encode(message_file_path: String, key_file_path: String) {
     let k = read_file(key_file_path);
 
     match m {
-        Ok(m) => {
-            match k {
-                Ok(k) => {
-                    let e = process_message(&m, &k, true);
-                    write_file("encoded.txt".to_string(), e);
-                },
-                Err(k) => panic!("Couldn't read from key file")
+        Ok(m) => match k {
+            Ok(k) => {
+                let e = process_message(&m, &k, true);
+                write_file("encoded.txt".to_string(), e);
             }
+            Err(_) => panic!("Couldn't read from key file"),
         },
-        Err(m) => panic!("Couldn't read from message file")
+        Err(_) => panic!("Couldn't read from message file"),
     }
 }
 
@@ -204,20 +202,18 @@ fn cli_decode(message_file_path: String, key_file_path: String) {
     let k = read_file(key_file_path);
 
     match m {
-        Ok(m) => {
-            match k {
-                Ok(k) => {
-                    let e = process_message(&m, &k, false);
-                    write_file("decoded.txt".to_string(), e);
-                },
-                Err(k) => panic!("Couldn't read from key file")
+        Ok(m) => match k {
+            Ok(k) => {
+                let e = process_message(&m, &k, false);
+                write_file("decoded.txt".to_string(), e);
             }
+            Err(_) => panic!("Couldn't read from key file"),
         },
-        Err(m) => panic!("Couldn't read from message file")
+        Err(_) => panic!("Couldn't read from message file"),
     }
 }
 
-fn main() {   
+fn main() {
     let args = Cli::from_args();
 
     match &args.command[..] {
@@ -227,13 +223,12 @@ fn main() {
             } else {
                 println!("No length provided")
             }
-        },
+        }
         "Encode" => {
             if let Some(key_file) = args.key_file {
                 if let Some(message_file) = args.message_file {
                     cli_encode(message_file, key_file);
-                }
-                else {
+                } else {
                     // message file not provided
                     println!("path to message file not provided")
                 }
@@ -241,13 +236,12 @@ fn main() {
                 // key file not provided
                 println!("path to key file not provided")
             }
-        },
+        }
         "Decode" => {
             if let Some(key_file) = args.key_file {
                 if let Some(message_file) = args.message_file {
                     cli_decode(message_file, key_file);
-                }
-                else {
+                } else {
                     // message file not provided
                     println!("path to message file not provided")
                 }
@@ -255,7 +249,9 @@ fn main() {
                 // key file not provided
                 println!("path to key file not provided")
             }
-        },
-        _ => {println!("{}", args.command + " not valid!")}
+        }
+        _ => {
+            println!("{}", args.command + " not valid!")
+        }
     }
 }
