@@ -1,4 +1,4 @@
-name: release
+name: Generate and publish release binaries
 
 on:
   release:
