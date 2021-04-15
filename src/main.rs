@@ -69,7 +69,7 @@ static NUM_CHAR_MAP: phf::Map<&str, char> = phf_map! {
 
 #[derive(StructOpt)]
 struct Cli {
-    /// command to run -> [GenerateKey, Encode, Decode]
+    /// GenerateKey, Encode, Decode
     command: String,
     /// path to key file if encoding/decoding
     #[structopt(short = "k", long = "key")]
@@ -77,7 +77,7 @@ struct Cli {
     /// path to message file if encoding/decoding
     #[structopt(short = "m", long = "message")]
     message_file: Option<String>,
-    /// path to message file if encoding/decoding
+    /// length of message you want to end (including whitespace)
     #[structopt(short = "l", long = "length")]
     key_length: Option<u64>,
 }
